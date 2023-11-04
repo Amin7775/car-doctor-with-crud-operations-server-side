@@ -20,6 +20,35 @@ app.get('/', (req,res)=>{
     res.send('Car Doctor Is Running')
 })
 
+//Custom Middleware
+const logger = async(req,res,next)=>{
+  console.log('Called:', req.host, req.originalUrl);
+  next()
+}
+
+const verifyToken=async(req,res,next)=>{
+  const token = req.cookies?.token;
+  console.log("value of token from middlware : ",token)
+
+ 
+  // if(req.query?.email !== req.user?.email){
+  //   return res.status(403).send({message:'Forbidden Access'})
+  // }
+
+  if(!token){
+    return res.status(401).send({message: 'Not Authorized'})
+  }
+  jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,async(err,decoded)=>{
+    if(err){
+      return res.status(401).send({message: 'Not Authorized'})
+    }
+    console.log("value in token (decoded) : ", decoded)
+    req.user= decoded;
+    next()
+  })
+}
+
+
 //MongoDB
 
 
@@ -63,7 +92,7 @@ async function run() {
     // })
 
     //get services data
-    app.get('/services', async(req,res)=>{
+    app.get('/services',logger,  async(req,res)=>{
         const cursor = serviceCollection.find()
         const result = await cursor.toArray()
         res.send(result)
@@ -89,7 +118,11 @@ async function run() {
       res.send(result)
     })
 
-    app.get('/bookings', async(req,res)=>{
+    app.get('/bookings',verifyToken, async(req,res)=>{
+      console.log("dsfdsf",req.query.email, req.user);
+      if(req.query.email !== req.user.email){
+          return res.status(403).send({message:'Forbidden Access'})
+        }
       let query={}
       if(req.query?.email){
         query = {email: req.query.email}
